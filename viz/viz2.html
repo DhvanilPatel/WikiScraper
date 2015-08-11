@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+
+<!-- Example based on http://bl.ocks.org/mbostock/3887118 -->
+<!-- Tooltip example from http://www.d3noob.org/2013/01/adding-tooltips-to-d3js-graph.html -->
+
+<style>
+body {
+  font: 11px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.dot {
+  stroke: #fff;
+  stroke-width: .5px;
+  fill: #2ecc71;
+  opacity: 0.2;
+}
+
+.dot:hover {
+  stroke: #222;
+  stroke-width: 0.5px;
+}
+
+.tooltip {
+  position: absolute;
+  width: 200px;
+  height: 28px;
+  pointer-events: none;
+}
+
+#classone {
+  display: block;
+  position: relative; 
+}
+
+
+#classtwo {
+  display: block;
+  position: relative;
+}
+
+</style>
+<body>
+<div id="classone"></div>
+<div id="classtwo"></div>
+<div id="classthree"></div>
+<div id="classfour"></div>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+
+<script>
+
+/* 
+ * value accessor - returns the value to encode for a given data object.
+ * scale - maps value to a visual display encoding, such as a pixel position.
+ * map function - maps from data value to display value
+ * axis - sets up axis
+ */ 
+
+function chart(idname, Country, Forward, Midfielder, Defender, Goalkeeper) {
+
+
+var margin = {top: 20, right: 20, bottom: 30, left: 40},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+
+// setup x 
+var xValue = function(d) { return d.Height;}, // data -> value
+    xScale = d3.scale.linear().range([0, width]), // value -> display
+    xMap = function(d) { return xScale(xValue(d));}, // data -> display
+    xAxis = d3.svg.axis().scale(xScale).orient("bottom");
+
+// setup y
+var yValue = function(d) { return d["Mean Year"];}, // data -> value
+    yScale = d3.scale.linear().range([height, 0]), // value -> display
+    yMap = function(d) { return yScale(yValue(d));}, // data -> display
+    yAxis = d3.svg.axis().scale(yScale).orient("left");
+
+// add the graph canvas to the body of the webpage
+var svg = d3.select("body").select(idname).append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+// add the tooltip area to the webpage
+var tooltip = d3.select("body").select(idname).append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+// load data
+d3.csv("test.csv", function(error, data) {
+
+  // change string (from CSV) into number format
+  data.forEach(function(d) {
+    d.Appearances = +d.Appearances;
+    d["Mean Year"] = +d["Mean Year"];
+//    console.log(d);
+  });
+
+  // don't want dots overlapping axis, so add in buffer to data domain
+  xScale.domain([1.6, 2.1]);
+  yScale.domain([1920, 2025]);
+  //xScale.domain([d3.min(data, xValue), d3.max(data, xValue)+1]);
+  //yScale.domain([d3.min(data, yValue), d3.max(data, yValue)+1]);
+
+  // x-axis
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+    .append("text")
+      .attr("class", "label")
+      .attr("x", width)
+      .attr("y", -6)
+      .style("text-anchor", "end")
+      .text("Appearances");
+
+  // y-axis
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("class", "label")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Playername");
+
+  var count = 0;
+
+  // draw dots
+  svg.selectAll(".dot")
+      .data(data)
+    .enter().append("circle")
+      .attr("class", "dot")
+      .attr("r", function(d) { return (d.Appearances)*0.25}
+        )
+      .attr("cx", xMap)
+      .style("fill", function(d) { 
+        if (d.Position == "q") { return "#498db" }
+        else if (d.Position == Forward && d.Country == Country) { return "#e74c3c" }
+        else if (d.Position == Midfielder && d.Country == Country) { return "#498db" }
+        else { return "#f1c40f" }})
+      .style("opacity", function(d) { 
+        if (d.Position == "Forward") { return "0.3" }
+        else if (d.Position == "Defender") {  return "0.3"}
+        else if (d.Position == "Midfielder") { return "0.3" }
+        else { return "0" }})
+      .attr("visibility", function(d) { 
+        if (d.Position == Forward && d.Country == Country) { count++; return "" }
+        if (d.Position == Midfielder && d.Country == Country) { count++; return "" }
+        if (d.Position == Defender && d.Country == Country) { count++; return "" }
+
+        else { return "hidden" }})
+      .attr("cy", yMap)
+      .on("mouseover", function(d) {
+          tooltip.transition()
+               .duration(200)
+               .style("opacity", .9);
+          tooltip.html(d["Playername"] + " " + d["Position"] + "<br/> (" + xValue(d) 
+	        + ", " + yValue(d) + ")")
+               .style("left", (d3.event.pageX + 5) + "px")
+               .style("top", (d3.event.pageY - 28) + "px");
+      })
+      .on("mouseout", function(d) {
+          tooltip.transition()
+               .duration(500)
+               .style("opacity", 0);
+      });
+
+
+  console.log(count);
+
+  // draw legend
+  var legend = svg.selectAll(".legend")
+      .data(data)
+    .enter().append("g")
+      .attr("class", "legend")
+      //.attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+  // draw legend colored rectangles
+  //legend.append("rect")
+  //    .attr("x", width - 18)
+  //    .attr("width", 18)
+  //    .attr("height", 18)
+  //   .style("fill", color);
+
+  // draw legend text
+  legend.append("text")
+      .attr("x", width - 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .style("text-anchor", "end")
+      .text(Country)
+
+});
+}
+
+var classone = "#classone"
+
+chart(classone, "Netherlands", "Forward", "Midfielder", "Defender", null);
+
+var classtwo = "#classtwo"
+
+chart(classtwo, "Spain", "Forward", "Midfielder", "Defender", null);
+
+chart("#classthree", "Argentina", "Forward", "Midfielder", "Defender", null);
+
+
+chart("#classfour", "Italy", "Forward", "Midfielder", "Defender", null);
+
+
+</script>
+</body>
+</html>
